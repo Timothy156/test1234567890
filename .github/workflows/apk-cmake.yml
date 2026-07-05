@@ -2,10 +2,17 @@ name: APK CMake
 
 on:
   workflow_call:
+    inputs:
+      qairt_sdk_url:
+        description: 'Direct download URL for the Qualcomm AI Runtime / Neural Processing SDK zip'
+        required: false
+        type: string
+        default: 'https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/2.48.0.260626/v2.48.0.260626.zip'
 
 env:
   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
   ANDROID_NDK_VERSION: 28.2.13676358
+  QAIRT_SDK_URL: ${{ inputs.qairt_sdk_url }}
 
 jobs:
   cmake:
@@ -19,13 +26,49 @@ jobs:
         with:
           submodules: recursive
 
-      # -------- checkout private SDK --------
-      - name: Checkout private SDK
-        uses: actions/checkout@v4
+      # -------- cache Qualcomm SDK download (keyed on the source URL) --------
+      - name: Cache Qualcomm AI Runtime SDK
+        id: qairt-cache
+        uses: actions/cache@v4
         with:
-          repository: ${{ github.repository_owner }}/qairt
-          ssh-key: ${{ secrets.QAIRT_DEPLOY_KEY }}
           path: qairt_sdk
+          key: qairt-sdk-${{ env.QAIRT_SDK_URL }}
+
+      # -------- download & extract SDK from Qualcomm Software Center --------
+      - name: Download & extract Qualcomm AI Runtime SDK
+        if: steps.qairt-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          echo "Downloading SDK from: $QAIRT_SDK_URL"
+
+          which unzip > /dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y -qq unzip)
+
+          curl -fL --retry 3 --retry-delay 5 -o qairt_sdk.zip "$QAIRT_SDK_URL"
+
+          rm -rf qairt_sdk_raw
+          mkdir -p qairt_sdk_raw
+          unzip -q qairt_sdk.zip -d qairt_sdk_raw
+
+          # The archive may extract straight into the SDK layout, or wrap it in
+          # one (or more) version-named directories. Walk down until we find the
+          # real root - i.e. the directory that directly contains "lib".
+          SDK_ROOT="$(find qairt_sdk_raw -maxdepth 4 -type d -name lib -exec dirname {} \; | head -1)"
+
+          if [ -z "$SDK_ROOT" ]; then
+            echo "❌ Could not locate SDK root (no 'lib' directory found) inside the downloaded archive."
+            echo "Archive top-level contents:"
+            find qairt_sdk_raw -maxdepth 2
+            exit 1
+          fi
+
+          echo "✅ SDK root detected at: $SDK_ROOT"
+          rm -rf qairt_sdk
+          mv "$SDK_ROOT" qairt_sdk
+          rm -f qairt_sdk.zip
+          rm -rf qairt_sdk_raw
+
+          echo "SDK contents:"
+          ls -la qairt_sdk
 
       # -------- Cache Rust toolchain (before NDK setup so cargo-ndk is pre-restored) --------
       - name: Cache Rust Cargo

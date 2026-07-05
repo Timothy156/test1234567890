@@ -18,8 +18,8 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      # -------- checkout dreamandroid (no submodules needed) --------
-      - name: Checkout dreamandroid
+      # -------- checkout (no submodules needed) --------
+      - name: Checkout test1234567890
         uses: actions/checkout@v4
 
       # -------- validate VERSION_NAME format --------
@@ -108,58 +108,17 @@ jobs:
           validate-wrappers: false
           cache-read-only: ${{ github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main' }}
 
-      # -------- keystore (release only) --------
-      - name: Get or create release keystore from qairt
-        if: inputs.build-type == 'release'
-        timeout-minutes: 10
-        run: |
-          set -euo pipefail
-          KEYSTORE_PASS="android"
-          KEY_ALIAS="androiddebugkey"
-          KEY_PASS="android"
-
-          QAIRT_REPO="git@github.com:${{ github.repository_owner }}/qairt.git"
-
-          mkdir -p ~/.ssh
-          echo "$QAIRT_DEPLOY_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-          if git clone --depth 1 --branch keystore "$QAIRT_REPO" /tmp/qairt_ks 2>/dev/null; then
-            cp /tmp/qairt_ks/release.keystore "$GITHUB_WORKSPACE/release.keystore"
-            echo "✅ Using existing keystore from qairt@keystore"
-          else
-            echo "🔑 keystore branch not found, generating new keystore..."
-            keytool -genkey -v \
-              -keystore "$GITHUB_WORKSPACE/release.keystore" \
-              -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass "$KEYSTORE_PASS" -keypass "$KEY_PASS" \
-              -dname "CN=Android Debug, OU=DreamHub, O=DreamHub, L=Unknown, ST=Unknown, C=US"
-
-            git clone --depth 1 "$QAIRT_REPO" /tmp/qairt_ks
-            cd /tmp/qairt_ks
-            git checkout --orphan keystore
-            git rm -rf --ignore-unmatch . 2>/dev/null || true
-            cp "$GITHUB_WORKSPACE/release.keystore" .
-            git add release.keystore
-            git -c user.name="CI" -c user.email="ci@dreamhub" \
-              commit -m "Store release keystore"
-            git push origin keystore --force
-            cd "$GITHUB_WORKSPACE"
-            echo "✅ Generated and stored keystore to qairt@keystore"
-          fi
-
-          echo "RELEASE_STORE_FILE=${GITHUB_WORKSPACE}/release.keystore" > keystore.properties
-          echo "RELEASE_STORE_PASSWORD=${KEYSTORE_PASS}" >> keystore.properties
-          echo "RELEASE_KEY_ALIAS=${KEY_ALIAS}" >> keystore.properties
-          echo "RELEASE_KEY_PASSWORD=${KEY_PASS}" >> keystore.properties
-        env:
-          QAIRT_DEPLOY_KEY: ${{ secrets.QAIRT_DEPLOY_KEY }}
+      # -------- no keystore step --------
+      # No signing key management at all. build.gradle.kts already falls back
+      # to the debug signing config whenever no keystore properties are passed
+      # in, so release builds here are just signed with the standard Android
+      # debug key. Fine for CI artifacts / sideloading; if you ever need a
+      # real signing key for a store listing, that's a separate manual step.
 
       # -------- assemble --------
       - name: Gradle assemble
         id: gradle-build
-        timeout-minutes: 20
+        timeout-minutes: 30
         run: |
           set -euo pipefail
           if [ "${{ inputs.build-type }}" = "release" ]; then
@@ -173,9 +132,6 @@ jobs:
           else
             GRADLE_ARGS="$GRADLE_ARGS --quiet"
           fi
-          if [ "${{ inputs.build-type }}" = "release" ] && [ -f keystore.properties ]; then
-            GRADLE_ARGS="$GRADLE_ARGS -PkeystorePropertiesFile=${PWD}/keystore.properties"
-          fi
           ./gradlew $GRADLE_ARGS 2>&1 | tee build-log.txt
 
       # -------- upload release APK --------
@@ -185,7 +141,7 @@ jobs:
         with:
           name: dreamandroid-APK
           path: app/build/outputs/apk/basic/release/*.apk
-          retention-days: 30
+          retention-days: 7
 
       # -------- upload debug APKs for emulator test --------
       - name: Upload debug APKs

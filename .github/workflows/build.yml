@@ -17,9 +17,16 @@ on:
   workflow_dispatch:
     inputs:
       cmake_libs:
-        description: 'Build native C++ libs (requires private SDK)'
+        description: 'Build native C++ libs (downloads Qualcomm SDK)'
         type: boolean
         default: true
+      qairt_sdk_variant:
+        description: 'Qualcomm SDK to build against'
+        type: choice
+        options:
+          - qairt-2.48.0.260626
+          - qnn-2.31.0.250130
+        default: qairt-2.48.0.260626
       apk_debug:
         description: 'Build debug APK'
         type: boolean
@@ -52,7 +59,8 @@ jobs:
   cmake:
     if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.cmake_libs == 'true') }}
     uses: ./.github/workflows/apk-cmake.yml
-    secrets: inherit
+    with:
+      qairt_sdk_url: ${{ github.event.inputs.qairt_sdk_variant == 'qnn-2.31.0.250130' && 'https://softwarecenter.qualcomm.com/api/download/software/qualcomm_neural_processing_sdk/v2.31.0.250130.zip' || 'https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/2.48.0.260626/v2.48.0.260626.zip' }}
 
   # ============================================================
   # Stage 2a — Gradle Debug
@@ -72,7 +80,6 @@ jobs:
     with:
       build-type: debug
       verbose-logging: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.verbose_logging == 'true' }}
-    secrets: inherit
 
   # ============================================================
   # Stage 2b — Gradle Release
@@ -91,7 +98,6 @@ jobs:
     with:
       build-type: release
       verbose-logging: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.verbose_logging == 'true' }}
-    secrets: inherit
 
   # ============================================================
   # Stage 3 — Emulator Test
@@ -106,7 +112,6 @@ jobs:
         (github.event_name == 'workflow_dispatch' && github.event.inputs.apk_test == 'true')
       )
     uses: ./.github/workflows/apk-test.yml
-    secrets: inherit
     with:
       build-run-id: ${{ github.run_id }}
 
