@@ -1,0 +1,98 @@
+package io.github.dreamandroid.local.ui.frontend
+
+import androidx.compose.runtime.Composable
+import io.github.dreamandroid.local.data.GenerateParameterRecord
+import io.github.dreamandroid.local.data.RecordRepository
+import io.github.dreamandroid.local.service.backend.BackendManager.TokenizeResult
+import io.github.dreamandroid.local.ui.screens.GenerateScreen
+
+// =========== Generate Tab (parameterized wrapper) ===========
+
+@Composable
+fun TabGenerateScreen(
+    modelId: String?,
+    prompt: String,
+    onPromptChange: (String) -> Unit,
+    negativePrompt: String,
+    onNegativePromptChange: (String) -> Unit,
+    steps: Float,
+    onStepsChange: (Float) -> Unit,
+    cfg: Float,
+    onCfgChange: (Float) -> Unit,
+    seed: String,
+    onSeedChange: (String) -> Unit,
+    batchCounts: Int,
+    onBatchCountsChange: (Int) -> Unit,
+    sampler: String,
+    onSamplerChange: (String) -> Unit,
+    denoiseCurve: String,
+    onDenoiseCurveChange: (String) -> Unit,
+    denoiseStrength: Float,
+    onDenoiseStrengthChange: (Float) -> Unit,
+    useOpenCL: Boolean,
+    onUseOpenCLChange: (Boolean) -> Unit,
+    width: Int,
+    onWidthChange: (Int) -> Unit,
+    height: Int,
+    onHeightChange: (Int) -> Unit,
+    onAddToQueue: (Int) -> Unit = {},
+    recordRepository: RecordRepository? = null,
+    // Records tab selection (lifted to parent for top bar access)
+    selectedGenerateTab: Int = 0,
+    onSelectedGenerateTabChange: (Int) -> Unit = {},
+    selectedRecordIds: Set<String> = emptySet(),
+    onSelectedRecordIdsChange: (Set<String>) -> Unit = {},
+    onRecordsListChange: (List<GenerateParameterRecord>) -> Unit = {},
+    // Tokenize callbacks (via BackendService HTTP middleware, surfaced through ViewModel)
+    onTokenizePrompt: (suspend (String) -> TokenizeResult?)? = null,
+    onTokenizeNegativePrompt: (suspend (String) -> TokenizeResult?)? = null,
+    promptTokenCount: Int = 0,
+    promptTokenMax: Int = 77,
+    promptOverflowOffset: Int = -1,
+    negativePromptTokenCount: Int = 0,
+    negativePromptTokenMax: Int = 77,
+    negativePromptOverflowOffset: Int = -1,
+) {
+    GenerateScreen(
+        modelId = modelId,
+        prompt = prompt,
+        onPromptChange = onPromptChange,
+        negativePrompt = negativePrompt,
+        onNegativePromptChange = onNegativePromptChange,
+        steps = steps,
+        onStepsChange = onStepsChange,
+        cfg = cfg,
+        onCfgChange = onCfgChange,
+        seed = seed,
+        onSeedChange = onSeedChange,
+        batchCounts = batchCounts,
+        onBatchCountsChange = onBatchCountsChange,
+        sampler = sampler,
+        onSamplerChange = onSamplerChange,
+        denoiseCurve = denoiseCurve,
+        onDenoiseCurveChange = onDenoiseCurveChange,
+        denoiseStrength = denoiseStrength,
+        onDenoiseStrengthChange = onDenoiseStrengthChange,
+        useOpenCL = useOpenCL,
+        onUseOpenCLChange = onUseOpenCLChange,
+        width = width,
+        onWidthChange = onWidthChange,
+        height = height,
+        onHeightChange = onHeightChange,
+        onAddToQueue = onAddToQueue,
+        recordRepository = recordRepository,
+        selectedGenerateTab = selectedGenerateTab,
+        onSelectedGenerateTabChange = onSelectedGenerateTabChange,
+        selectedRecordIds = selectedRecordIds,
+        onSelectedRecordIdsChange = onSelectedRecordIdsChange,
+        onRecordsListChange = onRecordsListChange,
+        onTokenizePrompt = onTokenizePrompt,
+        onTokenizeNegativePrompt = onTokenizeNegativePrompt,
+        promptTokenCount = promptTokenCount,
+        promptTokenMax = promptTokenMax,
+        promptOverflowOffset = promptOverflowOffset,
+        negativePromptTokenCount = negativePromptTokenCount,
+        negativePromptTokenMax = negativePromptTokenMax,
+        negativePromptOverflowOffset = negativePromptOverflowOffset,
+    )
+}
